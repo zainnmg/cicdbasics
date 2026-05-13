@@ -1,0 +1,51 @@
+{
+    "containerDefinitions": [
+        {
+            "name": "app",
+            "image": "641250539814.dkr.ecr.eu-west-2.amazonaws.com/learning-app@sha256:525c62f3182072d928cd480a87094686a9769ada8f74fd73be4badb07a3a758c",
+            "cpu": 0,
+            "portMappings": [
+                {
+                    "containerPort": 80,
+                    "hostPort": 80,
+                    "protocol": "tcp",
+                    "name": "app-80-tcp",
+                    "appProtocol": "http"
+                }
+            ],
+            "essential": true,
+            "environment": [],
+            "environmentFiles": [],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "ulimits": [],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/learning-app",
+                    "awslogs-create-group": "true",
+                    "awslogs-region": "eu-west-2",
+                    "awslogs-stream-prefix": "ecs"
+                },
+                "secretOptions": []
+            },
+            "systemControls": []
+        }
+    ],
+    "family": "learning-app",
+    "taskRoleArn": "arn:aws:iam::641250539814:role/learningAppTaskRole",
+    "executionRoleArn": "arn:aws:iam::641250539814:role/learningAppTaskRole",
+    "networkMode": "awsvpc",
+    "volumes": [],
+    "placementConstraints": [],
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    },
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "1024",
+    "memory": "3072",
+    "enableFaultInjection": false
+}
