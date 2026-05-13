@@ -24,6 +24,14 @@ jobs:
           role-to-assume: arn:aws:iam::641250539814:role/github-actions-ecr-role
           aws-region: eu-west-2
 
+      - name: Create ECR repository if missing
+        env:
+          ECR_REPOSITORY: learning-app
+          AWS_REGION: eu-west-2
+        run: |
+          aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" --region "$AWS_REGION" \
+            || aws ecr create-repository --repository-name "$ECR_REPOSITORY" --region "$AWS_REGION"
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
