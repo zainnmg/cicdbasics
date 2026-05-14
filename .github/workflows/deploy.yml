@@ -14,9 +14,12 @@ env:
   AWS_REGION: eu-west-2
   ECR_REPOSITORY: learning-app
   ECS_CLUSTER: learning-cluster
-  ECS_SERVICE: learning-app-service-2vp30d84
+  ECS_SERVICE: learning-app-service
   ECS_TASK_DEFINITION: task-def.json
   CONTAINER_NAME: app
+  ECS_DESIRED_COUNT: 1
+  ECS_SUBNETS: subnet-0b71c5a3429fc4cd4,subnet-085a6233bd2ce4f82,subnet-0d283189c5649580d
+  ECS_SECURITY_GROUP: sg-005c001ab08cb8dca
 
 jobs:
   deploy:
@@ -36,6 +39,17 @@ jobs:
         run: |
           aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" --region "$AWS_REGION" \
             || aws ecr create-repository --repository-name "$ECR_REPOSITORY" --region "$AWS_REGION"
+
+      - name: Create ECS cluster if missing
+        run: |
+          CLUSTER_STATUS=$(aws ecs describe-clusters \
+            --clusters "$ECS_CLUSTER" \
+            --query 'clusters[0].status' \
+            --output text)
+
+          if [ "$CLUSTER_STATUS" != "ACTIVE" ]; then
+            aws ecs create-cluster --cluster-name "$ECS_CLUSTER"
+          fi
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -60,10 +74,42 @@ jobs:
           container-name: ${{ env.CONTAINER_NAME }}
           image: ${{ steps.build-image.outputs.image }}
 
-      - name: Deploy ECS task definition
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.render-task-definition.outputs.task-definition }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          service: ${{ env.ECS_SERVICE }}
-          wait-for-service-stability: true
+      - name: Register ECS task definition
+        id: register-task-definition
+        run: |
+          TASK_DEFINITION_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "file://${{ steps.render-task-definition.outputs.task-definition }}" \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          echo "task-definition-arn=$TASK_DEFINITION_ARN" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update ECS service
+        run: |
+          SERVICE_COUNT=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --query 'length(services[?status!=`INACTIVE`])' \
+            --output text)
+
+          if [ "$SERVICE_COUNT" = "0" ]; then
+            aws ecs create-service \
+              --cluster "$ECS_CLUSTER" \
+              --service-name "$ECS_SERVICE" \
+              --task-definition "${{ steps.register-task-definition.outputs.task-definition-arn }}" \
+              --desired-count "$ECS_DESIRED_COUNT" \
+              --launch-type FARGATE \
+              --network-configuration "awsvpcConfiguration={subnets=[$ECS_SUBNETS],securityGroups=[$ECS_SECURITY_GROUP],assignPublicIp=ENABLED}"
+          else
+            aws ecs update-service \
+              --cluster "$ECS_CLUSTER" \
+              --service "$ECS_SERVICE" \
+              --task-definition "${{ steps.register-task-definition.outputs.task-definition-arn }}" \
+              --desired-count "$ECS_DESIRED_COUNT"
+          fi
+
+      - name: Wait for ECS service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE"
