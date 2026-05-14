@@ -17,7 +17,7 @@ env:
   ECS_SERVICE: learning-app-service
   ECS_TASK_DEFINITION: task-def.json
   CONTAINER_NAME: app
-  ECS_DESIRED_COUNT: 1
+  ECS_DESIRED_COUNT: 2
   ECS_SUBNETS: subnet-0b71c5a3429fc4cd4,subnet-085a6233bd2ce4f82,subnet-0d283189c5649580d
   ECS_SECURITY_GROUP: sg-005c001ab08cb8dca
 
